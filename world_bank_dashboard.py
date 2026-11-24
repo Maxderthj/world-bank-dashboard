@@ -1,5 +1,4 @@
 # /// script
-# requires-python = ">=3.13"
 # dependencies = [
 #     "altair==6.3.0",
 #     "marimo>=0.25.2",
@@ -8,9 +7,10 @@
 #     "pingouin==0.7.0",
 # ]
 # ///
+
 import marimo
 
-__generated_with = "0.25.1"
+__generated_with = "0.25.2"
 app = marimo.App(width="medium")
 
 
@@ -160,12 +160,18 @@ def _(indicator_dd, mo, year_slider):
 
     claim_section = mo.vstack([
         mo.md('# Group 2 · "The green transition makes countries poorer."'),
-        mo.md("*Dashboard by Ko-Hsin Lo and Max Mausolf*"),
+        mo.md("*Dashboard by Ko-Hsin Lo, Max Mausolf and Dorcas Adejunmobi*"),
         mo.hstack(
             [
-                mo.md(f"**{_title}**\n\n{_text}").style(
-                    {"border-left": "3px solid #c8c8c8", "padding": "0 14px", "height": "100%"}
-                )
+                mo.md(f"### {_title}\n\n{_text}").style(
+                    {
+                        "background-color": "#F0F7F4",
+                        "border": "1px solid #D6E8DF",
+                        "border-radius": "12px",
+                        "padding": "20px",
+                        "height": "100%",
+                    }
+    )
                 for _title, _text in _cards
             ],
             widths="equal",
@@ -177,20 +183,49 @@ def _(indicator_dd, mo, year_slider):
 
     ## usage line partially written by AI
     _usage = mo.md(
-        "<small>Choose an indicator and a period – the scatterplot, the tests and the verdict update. "
-        "The tabs *Over time* and *Distributions* show the trends and the checks behind the method.</small>"
+        "Choose an indicator and a period – the scatterplot, the tests and the verdict update. "
+        "The tabs *Over time* and *Distributions* show the trends and the checks behind the method."
     )
 
-    mo.vstack([
-        claim_section,
-        mo.hstack(
-            [indicator_dd, year_slider, mo.md(f"**{year_slider.value[0]}–{year_slider.value[1]}**")],
-            widths=[4, 6, 1],
-            align="center",
-            gap=2,
-        ),
-        _usage,
-    ])
+
+    mo.vstack(
+        [
+            # Dashboard title and information cards
+            claim_section,
+
+            # Filter panel
+            mo.vstack(
+                [
+                    mo.md("### Explore the data"),
+
+                    # Arrange the dropdown, slider, and years horizontally
+                    mo.hstack(
+                        [
+                            indicator_dd,
+                            year_slider,
+                            mo.md(
+                                f"**{year_slider.value[0]}–{year_slider.value[1]}**"
+                            ),
+                        ],
+                        widths=[4, 6, 2],
+                        align="center",
+                        gap=2,
+                    ),
+                    _usage,
+                ],
+                gap=1,
+            ).style(
+                {
+                    "background-color": "#F0F7F4",
+                    "border": "1px solid #D6E8DF",
+                    "border-radius": "12px",
+                    "padding": "20px",
+                }
+            ),
+
+        ],
+        gap=3,
+    )
     return
 
 
@@ -229,14 +264,24 @@ def _(alt, column_labels, df_selected, indicator, main_indicator):
             alt.Chart(df_selected[df_selected["country"] == _c]).mark_bar().encode(
                 x=alt.X(f"{column}:Q", title=None, bin=alt.Bin(maxbins=8)),
                 y=alt.Y("count():Q", title="years" if _i == 0 else None),
-            ).properties(width=110, height=80, title=_c)
+            ).properties(width=165, height=125, title=_c)
             for _i, _c in enumerate(_countries)
-        ]).resolve_scale(y="shared").properties(title=column_labels[column])
+
+    ]).resolve_scale(y="shared").properties(
+        title=alt.TitleParams(
+            text=column_labels[column],
+            offset=15,
+        )
+    )
 
     main_bar_plt = _histograms(main_indicator)
     chosen_bar_plt = _histograms(indicator)
 
-    bar_plots = alt.vconcat(main_bar_plt, chosen_bar_plt)
+    bar_plots = alt.vconcat(
+        main_bar_plt,
+        chosen_bar_plt,
+        spacing=25,
+    )
     return (bar_plots,)
 
 
@@ -270,7 +315,22 @@ def _(
             f"Normality: {column_labels[indicator]}": _normality(indicator),
         })
 
-    assumptions = mo.vstack([bar_plots, _checks])
+    assumptions = mo.vstack(
+        [
+            bar_plots,
+            mo.callout(
+                mo.md(
+                    "**Reading the histograms:** Each bar shows how many "
+                    "years fall within a particular range of values. "
+                    "The horizontal axis shows the indicator values, "
+                    "while the vertical axis shows the number of years."
+                ),
+                kind="info",
+            ),
+            _checks,
+        ],
+        gap=1,
+    )
     return (assumptions,)
 
 
@@ -334,25 +394,49 @@ def _(alt, df_selected, indicator, main_indicator, mo, pd, pg):
     _order = corrs_df.sort_values("r")["country"].tolist()
 
     ## readable axis titles, grey tones for significance (country colours stay for the countries), tooltip with country, partially written by AI
-    corr_histo = alt.Chart(corrs_df).mark_bar().encode(
-        x=alt.X("country:N", sort=_order, title=None, axis=alt.Axis(labelAngle=-40)),
-        y=alt.Y("r:Q", title="Spearman r", scale=alt.Scale(domain=[-1, 1])),
-        color=alt.Color(
-            "significant?:N",
-            title=None,
-            scale=alt.Scale(
-                domain=["statistically significant", "not significant"],
-                range=["#555555", "#c8c8c8"],
+    corr_histo = (
+        alt.Chart(corrs_df)
+        .mark_bar(size=38)
+        .encode(
+            x=alt.X(
+                "country:N",
+                sort=_order,
+                title=None,
+                axis=alt.Axis(labelAngle=-35),
             ),
-            legend=alt.Legend(orient="bottom", direction="vertical"),
-        ),
-        tooltip=[
-            alt.Tooltip("country:N", title="Country"),
-            alt.Tooltip("r:Q", title="Spearman r", format=".2f"),
-            alt.Tooltip("p_val:Q", title="p-value", format=".3f"),
-            alt.Tooltip("n:Q", title="Years (n)"),
-        ],
-    ).properties(width=180, height=300, title="Spearman r per country")
+            y=alt.Y(
+                "r:Q",
+                title="Spearman correlation (r)",
+                scale=alt.Scale(domain=[-1, 1]),
+            ),
+            color=alt.Color(
+                "significant?:N",
+                title="Statistical significance",
+                scale=alt.Scale(
+                    domain=[
+                        "statistically significant",
+                        "not significant",
+                    ],
+                    range=[
+                        "#2E8B70",
+                        "#E5A044",
+                    ],
+                ),
+                legend=alt.Legend(orient="bottom"),
+            ),
+            tooltip=[
+                alt.Tooltip("country:N", title="Country"),
+                alt.Tooltip("r:Q", title="Spearman r", format=".2f"),
+                alt.Tooltip("p_val:Q", title="p-value", format=".3f"),
+                alt.Tooltip("n:Q", title="Years (n)"),
+            ],
+        )
+        .properties(
+            width=260,
+            height=320,
+            title="Spearman correlation by country",
+        )
+    )
     return corr_histo, corrs_df, method_text, skipped
 
 
@@ -552,25 +636,108 @@ def _(
     verdict_text,
 ):
     ## the only cell that shows the main view: tabs with claim check, over time and distributions, partially written by AI
+
     _skipped_note = (
-        mo.callout(mo.md("<br>".join(skipped)), kind="warn") if skipped else mo.md("")
+        mo.callout(
+            mo.md("<br>".join(skipped)),
+            kind="warn",
+        )
+        if skipped
+        else mo.md("")
     )
 
     dashboard_tabs = mo.ui.tabs(
         {
-            "Claim check": mo.vstack([
-                mo.hstack([full_scatter_plt, corr_histo], justify="start", gap=3, wrap=True, align="start"),
-                corr_table,
-                _skipped_note,
-                verdict_text,
-                method_text,
-            ]),
-            "Over time": line_plots,
-            "Distributions": assumptions,
+            "Claim check": mo.vstack(
+                [
+                    mo.md("## Does the data support the claim?"),
+
+                    mo.md(
+                        "Explore the relationship between renewable energy "
+                        "and the selected indicator across five countries."
+                    ),
+
+                    mo.hstack(
+                        [full_scatter_plt, corr_histo],
+                        justify="start",
+                        gap=1,
+                        wrap=False,
+                        align="start",
+                    ),
+
+                    mo.md("### Correlation results"),
+
+                    corr_table,
+
+                    _skipped_note,
+
+                    mo.md("### What do the results tell us?"),
+
+                    mo.callout(
+                        verdict_text,
+                        kind="info",
+                    ),
+
+                    mo.vstack(
+                        [
+                            mo.md("### **Statistical method: Spearman correlation**"),
+                            method_text.style({"color": "#111111"}),
+                        ],
+                        gap=0,
+                    ),
+                ],
+                gap=1,
+            ),
+
+            "Over time": mo.vstack(
+                [
+                    mo.md("## How have these indicators changed over time?"),
+
+                    mo.md(
+                        "Explore how renewable energy consumption and the "
+                        "selected economic or social indicator have evolved "
+                        "across Germany, India, South Korea, Mexico, "
+                        "and the United States."
+                    ),
+
+                    mo.md("### Country trends"),
+
+                    line_plots,
+
+                    mo.callout(
+                        mo.md(
+                            "**How to read these charts:** Each colored line "
+                            "represents a country. Compare the trends to see "
+                            "whether renewable energy and the selected indicator "
+                            "increase or decrease over time. Similar trends do "
+                            "not necessarily mean that one causes the other."
+                        ),
+                        kind="info",
+                    ),
+                ],
+                gap=2,
+            ),
+
+            "Distributions": mo.vstack(
+                [
+                    mo.md("## How are the indicators distributed?"),
+
+                    mo.md(
+                        "Compare the distribution of renewable energy consumption "
+                        "and the selected indicator across the five countries."
+                    ),
+
+                    mo.md("### Distribution by country"),
+
+                    assumptions,
+                ],
+                gap=1,
+            ),
         },
         value=get_tab(),
         on_change=set_tab,
     )
+
     dashboard_tabs
     return
 
